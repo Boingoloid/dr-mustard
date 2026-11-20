@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dr. Mustard</title>
+<meta name="description" content="Tell Dr. Mustard how you feel. He prescribes one sandwich.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Figtree:wght@400;500;600&family=Gloock&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: three rooms, each one column wide: the front door, the intake desk,
+   the consulting room. Brine and rye stay quiet; mustard is spent only on the
+   prescription slip, the microphone and the button that moves you forward. */
+:root {
+  --paper: #ECEFE4;        /* pickle-brine white */
+  --surface: #F8F9F2;
+  --ink: #221D14;          /* dark rye */
+  --ink-soft: #5E5747;
+  --rule: #CDD2C0;
+  --mustard: #DDA900;
+  --mustard-ink: #2A2000;
+  --pickle: #3F5B2E;
+  --font-display: "Gloock", "Iowan Old Style", Georgia, serif;
+  --font-body: "Figtree", "Helvetica Neue", Arial, sans-serif;
+  --font-slip: "Courier Prime", "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #17150F;
+    --surface: #221F17;
+    --ink: #EEE8D6;
+    --ink-soft: #A9A18C;
+    --rule: #3A3628;
+    --mustard: #E6B520;
+    --mustard-ink: #221A00;
+    --pickle: #A5C183;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #17150F;
+  --surface: #221F17;
+  --ink: #EEE8D6;
+  --ink-soft: #A9A18C;
+  --rule: #3A3628;
+  --mustard: #E6B520;
+  --mustard-ink: #221A00;
+  --pickle: #A5C183;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--pickle); outline-offset: 2px; }
+button { font-family: var(--font-body); cursor: pointer; }
+.brand span { color: var(--mustard); }
+.label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Buttons */
+.go {
+  display: inline-block;
+  font: 600 1.02rem var(--font-body);
+  color: var(--mustard-ink);
+  background: var(--mustard);
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 24px;
+  text-decoration: none;
+  text-align: center;
+}
+.go:hover { filter: brightness(1.06); }
+.pill {
+  font: 500 0.88rem var(--font-body);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 8px 15px;
+  text-decoration: none;
+}
+.pill:hover { background: var(--ink); color: var(--paper); }
+
+/* ---------- Front door and intake desk ---------- */
+.page { height: 100%; overflow-y: auto; }
+.page-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+.plate { border-bottom: 2px solid var(--ink); padding-bottom: 20px; }
+.plate h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(3.2rem, 15vw, 6rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.plate p { margin: 14px 0 0; }
+.pitch { font-size: 1.2rem; max-width: 34ch; margin: 0; text-wrap: balance; }
+.page-inner > .go { align-self: flex-start; }
+
+.desk-head { border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+.desk-head h1 { font-family: var(--font-display); font-weight: 400; font-size: 2.2rem; line-height: 1.05; margin: 4px 0 0; }
+.intake { display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 600; }
+.field small { color: var(--ink-soft); font-size: 0.86rem; }
+.field input {
+  font: 400 1rem var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 12px 13px;
+  width: 100%;
+}
+.field input::placeholder { color: var(--ink-soft); }
+.field input[aria-invalid="true"] { border-color: var(--ink); border-width: 2px; }
+.form-error { margin: 0; font-weight: 500; min-height: 1.5em; }
+.form-foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.fine { margin: 0; color: var(--ink-soft); font-size: 0.86rem; }
+
+/* ---------- Prescription slip ---------- */
+.slip {
+  width: min(100%, 440px);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 10px solid var(--mustard);
+  padding: 12px 16px 14px;
+  font-family: var(--font-slip);
+  transform: rotate(-0.7deg);
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.45);
+}
+.slip-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.rx { font-family: var(--font-display); font-size: 1.7rem; line-height: 1; color: var(--mustard); }
+.slip-head small {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.slip h2 { font: 700 1.12rem/1.3 var(--font-slip); margin: 0 0 8px; overflow-wrap: anywhere; }
+.slip dl { margin: 0; display: grid; gap: 6px; font-size: 0.92rem; line-height: 1.45; }
+.slip dt {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.slip dd { margin: 0; overflow-wrap: anywhere; }
+
+/* ---------- Consulting room ---------- */
+.session {
+  height: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 0 12px;
+  border-bottom: 2px solid var(--ink);
+}
+.bar h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.7rem; line-height: 1; margin: 0; }
+.log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 0;
+}
+.turn { display: flex; flex-direction: column; gap: 10px; max-width: 92%; }
+.turn.patient { align-self: flex-end; align-items: flex-end; }
+.say { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.turn.doctor .say { font-size: 1.05rem; border-left: 3px solid var(--pickle); padding-left: 14px; }
+.turn.patient .say {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 14px 14px 2px 14px;
+  padding: 10px 14px;
+}
+.turn.notice .say { color: var(--ink-soft); font-size: 0.92rem; }
+.thinking { color: var(--ink-soft); font-style: italic; }
+.choices { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.warn {
+  background: var(--mustard);
+  color: var(--mustard-ink);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.warn strong { display: block; font-size: 1.05rem; }
+.warn p { margin: 4px 0 0; }
+.shopping {
+  margin: 0;
+  padding: 12px 16px 12px 34px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.desk { border-top: 1px solid var(--rule); padding: 10px 0 16px; }
+.status { min-height: 1.5em; margin: 0 0 8px; font-size: 0.88rem; color: var(--ink-soft); }
+.status.live { color: var(--pickle); font-weight: 500; }
+.composer { display: flex; gap: 10px; align-items: flex-end; }
+.mic {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--mustard);
+  color: var(--mustard-ink);
+  display: grid;
+  place-items: center;
+}
+.mic svg { width: 24px; height: 24px; }
+.mic .stop-icon { display: none; }
+.mic.listening { background: var(--pickle); color: var(--paper); }
+.mic.listening .mic-icon { display: none; }
+.mic.listening .stop-icon { display: block; }
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  font: 400 1rem/1.45 var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 13px;
+  max-height: 160px;
+}
+.composer textarea::placeholder { color: var(--ink-soft); }
+.send {
+  flex: none;
+  font: 600 0.95rem var(--font-body);
+  color: var(--paper);
+  background: var(--ink);
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  white-space: nowrap;
+}
+.send:disabled, .mic:disabled, .composer textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .log .slip { animation: tear 260ms ease-out; }
+  @keyframes tear {
+    from { transform: rotate(-0.7deg) translateY(-6px); }
+    to { transform: rotate(-0.7deg) translateY(0); }
+  }
+  .mic.listening { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(63, 91, 46, 0.45); }
+    50% { box-shadow: 0 0 0 10px rgba(63, 91, 46, 0); }
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Front door -->
+<main class="page" id="door">
+  <div class="page-inner">
+    <header class="plate">
+      <h1 class="brand">Dr. <span>Mustard</span></h1>
+      <p class="label">Walk-ins welcome.</p>
+    </header>
+
+    <p class="pitch" id="pun">Lettuce talk about it.</p>
+
+    <button type="button" class="go" id="begin">Begin</button>
+
+    <p class="fine">Dr. Mustard is an AI character played for laughs. He is not a therapist, and a sandwich is not medical advice.</p>
+  </div>
+</main>
+
+<!-- Intake desk -->
+<main class="page" id="desk" hidden>
+  <div class="page-inner">
+    <header class="desk-head">
+      <span class="label">Step 1 of 3</span>
+      <h1>Patient intake</h1>
+    </header>
+
+    <form class="intake" id="intake" novalidate>
+      <div class="field">
+        <label for="intake-name">Your name</label>
+        <input id="intake-name" type="text" autocomplete="given-name" maxlength="60">
+      </div>
+      <div class="field">
+        <label for="intake-city">City you live in</label>
+        <input id="intake-city" type="text" autocomplete="address-level2" maxlength="80" placeholder="Marina del Rey, CA">
+      </div>
+      <div class="field">
+        <label for="intake-diet">Dietary restrictions</label>
+        <input id="intake-diet" type="text" maxlength="200" placeholder="Vegetarian, kosher, no pork">
+        <small>Leave blank if you have none.</small>
+      </div>
+      <div class="field">
+        <label for="intake-allergy">Food allergies</label>
+        <input id="intake-allergy" type="text" maxlength="200" placeholder="Peanuts, shellfish, sesame">
+        <small>Leave blank if you have none.</small>
+      </div>
+      <p class="form-error" id="intake-error" role="alert"></p>
+      <div class="form-foot">
+        <button type="submit" class="go">See Dr. Mustard</button>
+        <button type="button" class="pill" id="intake-back">Back</button>
+      </div>
+      <p class="fine">Your answers are sent to an AI model to write Dr. Mustard's reply. This site does not save them.</p>
+    </form>
+  </div>
+</main>
+
+<!-- Consulting room -->
+<main class="session" id="session" hidden>
+  <header class="bar">
+    <h1 class="brand">Dr. <span>Mustard</span></h1>
+    <button type="button" class="pill" id="end-session">End session</button>
+  </header>
+
+  <section class="log" id="log" aria-live="polite" aria-label="Session"></section>
+
+  <div class="desk" id="talk-desk">
+    <p class="status" id="status"></p>
+    <form class="composer" id="composer">
+      <button type="button" class="mic" id="mic" aria-label="Start talking" hidden>
+        <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v4"></path></svg>
+        <svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+      </button>
+      <textarea id="patient-input" rows="1" maxlength="2000" placeholder="Tell Dr. Mustard how you feel" aria-label="Your message"></textarea>
+      <button type="submit" class="send" id="send">Send</button>
+    </form>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var MARK = "===RX===";
+  var API = "/api/chat";   // the relay function; it holds the API key and Dr. Mustard's instructions
+  var OUT = "Dr. Mustard is out of the office. Please come back later.";
+
+  var door = document.getElementById("door");
+  var desk = document.getElementById("desk");
+  var session = document.getElementById("session");
+  var beginBtn = document.getElementById("begin");
+  var intakeForm = document.getElementById("intake");
+  var intakeError = document.getElementById("intake-error");
+  var intakeBack = document.getElementById("intake-back");
+  var fName = document.getElementById("intake-name");
+  var fCity = document.getElementById("intake-city");
+  var fDiet = document.getElementById("intake-diet");
+  var fAllergy = document.getElementById("intake-allergy");
+  var endBtn = document.getElementById("end-session");
+  var log = document.getElementById("log");
+  var talkDesk = document.getElementById("talk-desk");
+  var statusLine = document.getElementById("status");
+  var form = document.getElementById("composer");
+  var micBtn = document.getElementById("mic");
+  var input = document.getElementById("patient-input");
+  var sendBtn = document.getElementById("send");
+
+  var view = "door";        // door | desk | session
+  var patient = null;       // {name, city, diet, allergy}
+  var messages = [];        // {role, content}; lives only while the page is open
+  var busy = false;
+  var closed = false;
+  var controller = null;
+
+  var dict = null;          // the microphone, when the browser has speech recognition
+  var listening = false;
+  var sendOnStop = false;
+  var heardBase = "";
+  var heardFinal = "";
+  var heardPartial = "";
+
+  /* ---------- the front door's line, new for every session ---------- */
+  var PUNS = [
+    "Lettuce talk about it.",
+    "Tell him what's eating you.",
+    "Whatever it is, he's bread for it.",
+    "Let's get to the meat of it.",
+    "You knead to talk.",
+    "Feeling crumby? Come in.",
+    "In a pickle? Sit down.",
+    "Rye the long face?",
+    "Nothing is too cheesy to say here.",
+    "You've been spread too thin.",
+    "Things will turn out for the butter.",
+    "Time to ketchup with your feelings."
+  ];
+  var punEl = document.getElementById("pun");
+  var punAt = -1;
+  function newPun() {
+    var next;
+    do { next = Math.floor(Math.random() * PUNS.length); } while (next === punAt);
+    punAt = next;
+    punEl.textContent = PUNS[next];
+  }
+  newPun();
+
+  /* ---------- how Dr. Mustard greets a patient, new for every session ---------- */
+  var GREETINGS = [
+    "Hello, {name}. Let's not loaf around. Tell me how you've been feeling.",
+    "Ah, {name}. I had a feeling you'd roll in today. How have you been feeling?",
+    "Welcome, {name}. Whatever it is, we'll get to the meat of it. Tell me how you've been feeling.",
+    "Sit down, {name}. You look like someone who's been toasted on both sides. How have you been feeling?",
+    "Hello, {name}. Take your time. I relish these conversations. How have you been feeling?",
+    "Welcome, {name}. No need to sugarcoat anything, and please don't butter me up. How have you been feeling?",
+    "Sit, {name}. Something is clearly eating you, and I'd like to return the favor. Tell me how you've been feeling.",
+    "Come in, {name}. Let's unwrap this slowly. Tell me how you've been feeling."
+  ];
+  var greetAt = -1;
+  function newGreeting() {
+    var next;
+    do { next = Math.floor(Math.random() * GREETINGS.length); } while (next === greetAt);
+    greetAt = next;
+  }
+
+  /* ---------- helpers ---------- */
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function show(next) {
+    view = next;
+    door.hidden = next !== "door";
+    desk.hidden = next !== "desk";
+    session.hidden = next !== "session";
+  }
+  function setStatus(text, live) {
+    statusLine.textContent = text || "";
+    statusLine.classList.toggle("live", !!live);
+  }
+  function paintStatusIdle() {
+    if (busy || listening || closed) return;
+    setStatus(dict ? "Tap the microphone to talk, or type." : "");
+  }
+  function toBottom() { log.scrollTop = log.scrollHeight; }
+  function autosize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight + 2, 160) + "px";
+  }
+  function quiet(result) {
+    if (result && typeof result.catch === "function") result.catch(function () {});
+  }
+
+  function parse(raw) {
+    var at = raw.indexOf(MARK);
+    if (at === -1) {
+      return { prose: raw.replace(/\n?=+(R(X(=+)?)?)?$/, "").trim(), rx: null };
+    }
+    var rx = {};
+    var key = null;
+    raw.slice(at + MARK.length).split("\n").forEach(function (line) {
+      var m = line.match(/^\s*(Sandwich|Build|Indication|Dosage|Ingredients|Directions|Search)\s*:\s*(.*)$/i);
+      if (m) { key = m[1].toLowerCase(); rx[key] = m[2].trim(); }
+      else if (key && line.trim()) { rx[key] += " " + line.trim(); }
+    });
+    return { prose: raw.slice(0, at).trim(), rx: rx.sandwich ? rx : null };
+  }
+
+  function slip(rx) {
+    var card = el("article", "slip");
+    var head = el("div", "slip-head");
+    head.appendChild(el("span", "rx", "℞"));
+    head.appendChild(el("small", null, "For " + (patient ? patient.name : "the patient") + ", from Dr. Mustard"));
+    card.appendChild(head);
+    card.appendChild(el("h2", null, rx.sandwich));
+    var dl = el("dl");
+    [["build", "Build"], ["indication", "Indication"], ["dosage", "Dosage"]].forEach(function (pair) {
+      if (!rx[pair[0]]) return;
+      var row = el("div");
+      row.appendChild(el("dt", null, pair[1]));
+      row.appendChild(el("dd", null, rx[pair[0]]));
+      dl.appendChild(row);
+    });
+    card.appendChild(dl);
+    return card;
+  }
+
+  function fillDoctor(turn, raw, pending) {
+    var parsed = parse(raw);
+    turn.textContent = "";
+    turn.appendChild(el("span", "label", "Dr. Mustard"));
+    if (parsed.prose) turn.appendChild(el("p", "say", parsed.prose));
+    else if (pending) turn.appendChild(el("p", "say thinking", "Dr. Mustard is considering the bread."));
+    if (parsed.rx) turn.appendChild(slip(parsed.rx));
+    return parsed;
+  }
+  function addDoctor(raw, pending) {
+    var turn = el("div", "turn doctor");
+    fillDoctor(turn, raw, pending);
+    log.appendChild(turn);
+    return turn;
+  }
+  function addDoctorLine(text) {
+    var turn = el("div", "turn doctor");
+    turn.appendChild(el("span", "label", "Dr. Mustard"));
+    turn.appendChild(el("p", "say", text));
+    log.appendChild(turn);
+    return turn;
+  }
+  function addPatient(text) {
+    var turn = el("div", "turn patient");
+    turn.appendChild(el("span", "label", "You"));
+    turn.appendChild(el("p", "say", text));
+    log.appendChild(turn);
+  }
+  function addNotice(text) {
+    var turn = el("div", "turn notice");
+    turn.appendChild(el("p", "say", text));
+    log.appendChild(turn);
+  }
+
+  /* ---------- step 3: Uber Eats or ingredients ---------- */
+  function newPatientButton() {
+    var again = el("button", "pill", "New patient");
+    again.type = "button";
+    again.addEventListener("click", endSession);
+    return again;
+  }
+
+  function recipe(turn, rx) {
+    var items = (rx.ingredients || rx.build || "").split(/\s*;\s*/).map(function (s) {
+      return s.replace(/\.$/, "").trim();
+    }).filter(Boolean);
+    var list = el("ul", "shopping");
+    items.forEach(function (item) { list.appendChild(el("li", null, item)); });
+    turn.appendChild(list);
+    var steps = (rx.directions || "").split(/\s*;\s*/).map(function (s) {
+      s = s.replace(/^\d+[.)]\s*/, "").trim();
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }).filter(Boolean);
+    if (steps.length && !/^none\.?$/i.test(steps.join(" "))) {
+      turn.appendChild(el("span", "label", "Directions"));
+      var how = el("ol", "shopping");
+      steps.forEach(function (step) { how.appendChild(el("li", null, step)); });
+      turn.appendChild(how);
+    }
+  }
+
+  function finish(turn) {
+    var row = el("div", "choices");
+    row.appendChild(newPatientButton());
+    turn.appendChild(row);
+    toBottom();
+  }
+
+  function allergyWarning() {
+    var box = el("div", "warn");
+    box.setAttribute("role", "note");
+    box.appendChild(el("strong", null, "Check with the restaurant before you order."));
+    var told = [];
+    if (patient.diet) told.push("dietary restrictions: " + patient.diet);
+    if (patient.allergy) told.push("food allergies: " + patient.allergy);
+    box.appendChild(el("p", null,
+      "Dr. Mustard cannot guarantee that anything on Uber Eats fits your dietary restrictions or food allergies. Confirm the ingredients with the restaurant yourself." +
+      (told.length ? " You listed " + told.join(" and ") + "." : "")));
+    return box;
+  }
+
+  function showRecipe(rx, opener) {
+    var done = addDoctorLine(opener + " Here is what goes into your " + rx.sandwich + ":");
+    recipe(done, rx);
+    finish(done);
+  }
+
+  function offerDelivery(rx) {
+    talkDesk.hidden = true;
+    var term = (rx.search || rx.sandwich).replace(/\s+/g, " ").trim();
+
+    // "your The Reuben" reads wrong, so the question and the ingredients line drop a leading article.
+    rx.sandwich = rx.sandwich.replace(/^(the|a|an)\s+/i, "");
+    var turn = addDoctorLine("Would you like to look for your " + rx.sandwich + " on Uber Eats in " + patient.city + " so that you can have it delivered?");
+    var choices = el("div", "choices");
+    var yes = el("button", "go", "Yes, search Uber Eats");
+    yes.type = "button";
+    var no = el("button", "pill", "No, give me the ingredients");
+    no.type = "button";
+    choices.appendChild(yes);
+    choices.appendChild(no);
+    turn.appendChild(choices);
+    toBottom();
+
+    yes.addEventListener("click", function () {
+      choices.remove();
+      addPatient("Yes, find it.");
+      // The public site cannot read restaurant menus, so this opens an Uber Eats search
+      // and the patient picks the closest match. Uber Eats uses the patient's own address.
+      var done = addDoctorLine("I cannot read the menus from this office, so I am sending you to Uber Eats with a search for “" + term + "”. Order the closest thing to your " + rx.sandwich + " that you can find.");
+      done.appendChild(allergyWarning());
+      var row = el("div", "choices");
+      var open = el("a", "go", "Search Uber Eats for " + term);
+      open.href = "https://www.ubereats.com/search?q=" + encodeURIComponent(term);
+      open.target = "_blank";
+      open.rel = "noopener noreferrer";
+      var make = el("button", "pill", "Not there? Show the ingredients");
+      make.type = "button";
+      var again = newPatientButton();
+      row.appendChild(open);
+      row.appendChild(make);
+      row.appendChild(again);
+      done.appendChild(row);
+      toBottom();
+      make.addEventListener("click", function () {
+        make.remove();
+        again.remove();
+        showRecipe(rx, "Then you will have to make it yourself.");
+      });
+    });
+
+    no.addEventListener("click", function () {
+      choices.remove();
+      addPatient("No, I'll make it.");
+      showRecipe(rx, "Then you will be making it yourself.");
+    });
+  }
+
+  /* ---------- the microphone, through the browser's own speech recognition ----------
+     Works in Chrome, Edge and Safari. Where the browser has none, the button stays hidden
+     and typing works the same. */
+  function browserDictation() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    var rec = null;
+    var onPartial = null;
+    var onFinal = null;
+    var onState = null;
+    var stopped = null;
+    return {
+      onPartial: function (fn) { onPartial = fn; },
+      onFinal: function (fn) { onFinal = fn; },
+      onState: function (fn) { onState = fn; },
+      start: function () {
+        return new Promise(function (resolve, reject) {
+          var started = false;
+          var mine = new SR();
+          rec = mine;
+          mine.lang = navigator.language || "en-US";
+          mine.continuous = true;
+          mine.interimResults = true;
+          mine.onstart = function () {
+            started = true;
+            if (onState) onState({ state: "listening" });
+            resolve();
+          };
+          mine.onresult = function (event) {
+            var interim = "";
+            for (var i = event.resultIndex; i < event.results.length; i++) {
+              var result = event.results[i];
+              if (result.isFinal) { if (onFinal) onFinal({ text: result[0].transcript }); }
+              else interim += result[0].transcript;
+            }
+            if (onPartial) onPartial({ text: interim.trim() });
+          };
+          mine.onerror = function (event) {
+            if (started) return;
+            var err = new Error(event.error || "failed");
+            err.code = event.error === "not-allowed" || event.error === "service-not-allowed" ? "not_granted" : "failed";
+            reject(err);
+          };
+          mine.onend = function () {
+            if (rec === mine) rec = null;
+            if (onState) onState({ state: "idle" });
+            if (stopped) { var done = stopped; stopped = null; done(); }
+          };
+          try { mine.start(); } catch (err) { rec = null; reject(err); }
+        });
+      },
+      stop: function () {
+        return new Promise(function (resolve) {
+          if (!rec) { resolve(); return; }
+          stopped = resolve;
+          try { rec.stop(); } catch (err) { stopped = null; resolve(); }
+        });
+      }
+    };
+  }
+
+  function showHeard() {
+    input.value = [heardBase, heardFinal, heardPartial].filter(Boolean).join(" ");
+    autosize();
+  }
+  function paintMic() {
+    micBtn.classList.toggle("listening", listening);
+    micBtn.setAttribute("aria-label", listening ? "Stop and send" : "Start talking");
+    if (listening) setStatus("Listening. Tap the square when you're done and he'll answer.", true);
+  }
+
+  dict = browserDictation();
+  if (dict) {
+    micBtn.hidden = false;
+    dict.onPartial(function (e) { heardPartial = e.text || ""; showHeard(); });
+    dict.onFinal(function (e) {
+      if (e.text) heardFinal += (heardFinal ? " " : "") + e.text.trim();
+      heardPartial = "";
+      showHeard();
+    });
+    dict.onState(function (e) {
+      listening = e.state === "listening";
+      paintMic();
+      if (!listening && !sendOnStop && !busy) setStatus(input.value.trim() ? "Check what he heard, then send." : "");
+    });
+  }
+
+  micBtn.addEventListener("click", function () {
+    if (!dict || busy || closed) return;
+    if (listening) {
+      sendOnStop = true;
+      setStatus("Catching your last words.");
+      dict.stop().catch(function () {}).then(function () {
+        sendOnStop = false;
+        listening = false;
+        paintMic();
+        if (input.value.trim()) send(input.value);
+        else paintStatusIdle();
+      });
+      return;
+    }
+    heardBase = input.value.trim();
+    heardFinal = "";
+    heardPartial = "";
+    dict.start().catch(function (err) {
+      listening = false;
+      paintMic();
+      if (err && err.code === "not_granted") {
+        dict = null;
+        micBtn.hidden = true;
+        setStatus("The microphone is off for this site. Typing works the same.");
+      } else {
+        setStatus("The microphone didn't start. Tap it again, or type.");
+      }
+    });
+  });
+
+  /* ---------- step 2: the session ---------- */
+  function setBusy(on) {
+    busy = on;
+    sendBtn.disabled = on || closed;
+    micBtn.disabled = on || closed;
+    if (on) setStatus("Dr. Mustard is thinking.");
+    else paintStatusIdle();
+  }
+  function closeOffice() {
+    closed = true;
+    addNotice(OUT);
+    input.disabled = true;
+    sendBtn.disabled = true;
+    micBtn.disabled = true;
+    setStatus("");
+    toBottom();
+  }
+
+  function send(text) {
+    text = (text || "").trim().slice(0, 2000);
+    if (!text || busy || closed || listening || !patient) return;
+    messages.push({ role: "user", content: text });
+    addPatient(text);
+    input.value = "";
+    heardBase = heardFinal = heardPartial = "";
+    autosize();
+    setBusy(true);
+    var turn = addDoctor("", true);
+    toBottom();
+
+    controller = new AbortController();
+    var signal = controller.signal;
+
+    // The relay adds Dr. Mustard's instructions and the API key, then asks Claude.
+    fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ patient: patient, messages: messages }),
+      signal: signal
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || typeof data.text !== "string") {
+          var err = new Error("failed");
+          err.code = (data && data.error) || "failed";
+          throw err;
+        }
+        return data.text;
+      });
+    }).then(function (raw) {
+      if (signal.aborted) return;
+      messages.push({ role: "assistant", content: raw });
+      var parsed = fillDoctor(turn, raw, false);
+      setBusy(false);
+      if (parsed.rx) offerDelivery(parsed.rx);
+      else input.focus();
+      toBottom();
+    }).catch(function (err) {
+      if (signal.aborted) return;
+      turn.remove();
+      messages.pop();                 // let the patient say it again
+      input.value = text;
+      autosize();
+      setBusy(false);
+      var code = err && err.code;
+      if (code === "closed") closeOffice();
+      else if (code === "rate_limited") addNotice("The waiting room is full. Give it a while, then send that again.");
+      else if (code === "too_long") addNotice("That was a lot to take in. Say it in fewer words, then send it again.");
+      else if (code === "session_over") addNotice("This session has run its course. End it and start a new one.");
+      else addNotice("Dr. Mustard lost his train of thought. Send that again.");
+      toBottom();
+    });
+  }
+
+  function openSession() {
+    show("session");
+    log.textContent = "";
+    talkDesk.hidden = false;
+    newGreeting();
+    addDoctorLine(GREETINGS[greetAt].replace("{name}", function () { return patient.name; }));
+    setBusy(false);
+    toBottom();
+  }
+
+  function endSession() {
+    if (controller) controller.abort();
+    if (dict && listening) { try { quiet(dict.stop()); } catch (e) {} }
+    listening = false;
+    sendOnStop = false;
+    paintMic();
+    messages = [];
+    patient = null;
+    closed = false;
+    busy = false;
+    input.disabled = false;
+    input.value = "";
+    autosize();
+    intakeForm.reset();
+    intakeError.textContent = "";
+    [fName, fCity].forEach(function (f) { f.removeAttribute("aria-invalid"); });
+    newPun();
+    show("door");
+    door.scrollTop = 0;
+    beginBtn.focus();
+  }
+
+  /* ---------- step 1: intake ---------- */
+  beginBtn.addEventListener("click", function () {
+    show("desk");
+    desk.scrollTop = 0;
+    fName.focus();
+  });
+  intakeBack.addEventListener("click", function () { show("door"); beginBtn.focus(); });
+  intakeForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var name = fName.value.trim();
+    var city = fCity.value.trim();
+    fName.toggleAttribute("aria-invalid", !name);
+    fCity.toggleAttribute("aria-invalid", !city);
+    if (!name) fName.setAttribute("aria-invalid", "true");
+    if (!city) fCity.setAttribute("aria-invalid", "true");
+    if (!name || !city) {
+      intakeError.textContent = !name && !city ? "Dr. Mustard needs your name and your city."
+        : !name ? "Dr. Mustard needs your name." : "Dr. Mustard needs your city.";
+      (!name ? fName : fCity).focus();
+      return;
+    }
+    intakeError.textContent = "";
+    patient = { name: name, city: city, diet: fDiet.value.trim(), allergy: fAllergy.value.trim() };
+    messages = [];
+    openSession();
+    input.focus();
+  });
+
+  endBtn.addEventListener("click", endSession);
+  form.addEventListener("submit", function (event) { event.preventDefault(); send(input.value); });
+  input.addEventListener("input", autosize);
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      send(input.value);
+    }
+  });
+})();
+</script>
+</body>
+</html>
