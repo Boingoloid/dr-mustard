@@ -20,9 +20,13 @@ The site is then live at the address Vercel gives the project. A custom domain c
 ## The caps
 
 - **Total spend:** the prepaid credit balance in the Claude Console. When it reaches zero, Dr. Mustard is "out of the office" until credits are added.
-- **Per reply, per session, per visitor:** the five numbers at the top of `api/chat.js`.
+- **Per reply, per session, per visitor:** the numbers at the top of `api/chat.js`.
 
 The per-visitor limit is kept in the function's memory, so it is best effort: it resets when Vercel recycles the function. The credit balance is the cap that cannot be exceeded.
+
+## How much he thinks
+
+Dr. Mustard thinks briefly before each reply, which helps him respect diets and allergies and choose a sandwich that suits the person's city. To change it, add an environment variable named `DR_MUSTARD_THINKING` set to `off`, `low`, `medium` or `high`, and redeploy. Without it the site uses `low`. `off` is about two seconds faster per reply.
 
 ## Changing the model
 
