@@ -5,7 +5,9 @@
 /* ---------- the caps: change these numbers to loosen or tighten spending ---------- */
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5"; // set ANTHROPIC_MODEL to switch models
 const MAX_REPLY_TOKENS = 1000;     // longest reply Claude may write
-const THINKING_ROOM = 3000;        // extra allowance, used only for a model that refuses to run with thinking off
+const THINKING_ROOM = 3000;        // extra allowance for the model's thinking, when thinking is on
+// How much the model thinks before it answers: "off", "low", "medium", "high", or "auto" (the model's own default).
+const THINKING = process.env.DR_MUSTARD_THINKING || "off";
 const MAX_MESSAGES = 7;            // longest session: 4 patient turns, 3 replies
 const MAX_MESSAGE_CHARS = 2000;    // longest single patient message
 const REQUESTS_PER_HOUR = 30;      // per visitor (by IP address), best effort
@@ -35,9 +37,10 @@ function persona(p) {
     "- Whatever the patient brings you (good news, boredom, heartbreak, real distress, something that has nothing to do with feelings), you still prescribe a sandwich.",
     "- The sandwich must fully respect the intake form. Treat every allergy as absolute, including in the bread and the condiments, and never work around a dietary restriction. Do not ask about either one again.",
     "- The sandwich must be real, specific and the kind of thing a restaurant in or near their city would sell. Your reasoning ties the bread, the filling and the condiment to their state of mind.",
-    "- Call the sandwich by its real, ordinary name, the one a menu would print, so the person knows at once what it is: either the established name of a classic sandwich or a plain description of what is in it. Never invent a name, never add a nickname or a pun, never name it after the feeling, and do not put The in front of it. Titles such as The Good Company Club or The Toast of Friends are wrong.",
-    "- Draw on the whole range of sandwiches people actually eat, from delis, diners, bakeries, cafes and street stalls around the world. Fit the sandwich to this person and this feeling, and do not fall back on the same few favorites.",
-    "- Choose a sandwich that fits the intake form the way it is normally made. Do not take a sandwich that normally breaks a restriction or allergy and rework it. If a restaurant could not tell the restriction from the name alone, put it in the name and in the Search line, for example by starting both with Vegan or Vegetarian.",
+    "- Choose the sandwich for this particular person. Build the choice on the specifics of what they told you (the event, the people involved, the stakes, the time of day) and on where they live and what that place eats, not on their general mood. Two people with different stories should not leave with the same sandwich.",
+    "- Choose a sandwich that fits the intake form the way it is normally made. Do not take a sandwich that normally contains something they cannot eat and rework it.",
+    "- Once you have chosen, write its name plainly, the way a menu would, so the person knows at once what it is: its ordinary name if it has one, otherwise what is in it and on what bread. The name is a label, not a title: no invented names, no nicknames or puns, nothing named after the feeling, and no The in front.",
+    "- If the person has a dietary restriction that the name alone would not make obvious to a restaurant, begin both the name and the Search line with it (Vegan, Vegetarian, Halal, Kosher, Gluten-free).",
     "- The personal touch goes in the Indication and Dosage lines, never in the name.",
     "- Mustard is a tool, not a reflex. Most prescriptions should not feature it.",
     "- The patient may be speaking through a microphone, so forgive odd transcription and answer what they evidently meant.",
@@ -48,7 +51,7 @@ function persona(p) {
     "Format of the reply that prescribes, exactly:",
     "<your words, plain text>",
     MARK,
-    "Sandwich: <the real, ordinary menu name of the one sandwich, with no The in front>",
+    "Sandwich: <the plain menu name of the one sandwich, with no The in front, beginning with the dietary restriction if there is one>",
     "Build: <bread, filling, condiment and any preparation, in one or two sentences>",
     "Indication: <one sentence on why this sandwich answers what they told you>",
     "Dosage: <a short, deadpan instruction for how and when to eat it>",
@@ -56,6 +59,12 @@ function persona(p) {
     "Directions: <the steps to make it at home, in order, separated by semicolons, covering any cooking, toasting, pressing or resting; write the single word none if it only needs assembling in the obvious way>",
     "Search: <two to four words someone would type into a food delivery app to find this sandwich>"
   ].join("\n");
+}
+
+function thinkingSettings(mode) {
+  if (mode === "off") return { thinking: { type: "disabled" } };
+  if (mode === "auto") return { max_tokens: MAX_REPLY_TOKENS + THINKING_ROOM };
+  return { thinking: { type: "adaptive" }, output_config: { effort: mode }, max_tokens: MAX_REPLY_TOKENS + THINKING_ROOM };
 }
 
 const NOTE_FIRST = "(Clinic note, not from the patient: prescribe now, using the format. The only exception is a message that says nothing at all about how the patient feels. In that case ask one short question and leave out the prescription block.)";
@@ -162,18 +171,16 @@ module.exports = async function handler(req, res) {
     system: persona(patient),
     messages: messages
   };
-  // Current Claude models think before answering unless told not to, and that thinking is
-  // counted against max_tokens. Left on, it can use up the whole allowance and leave no reply.
-  // Dr. Mustard's replies are short and in character, so thinking is switched off.
-  let allowThinking = false;
+  // Current Claude models think before answering unless told otherwise, and that thinking is
+  // counted against max_tokens. Whenever thinking is on, the allowance is raised to leave room
+  // for it, so the thinking can never use up the space meant for the reply.
+  let mode = THINKING;
   let upstream = null;
   let data = null;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     upstream = null;
     data = null;
-    const body = Object.assign({}, core, allowThinking
-      ? { max_tokens: MAX_REPLY_TOKENS + THINKING_ROOM }
-      : { thinking: { type: "disabled" } });
+    const body = Object.assign({}, core, thinkingSettings(mode));
     try {
       upstream = await fetch("https://api.anthropic.com/v1/messages",
         Object.assign({}, request, { body: JSON.stringify(body), signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) }));
@@ -183,10 +190,11 @@ module.exports = async function handler(req, res) {
       console.error("dr-mustard: attempt " + attempt + " did not reach Claude (" + ((e && e.name) || "error") + ")");
     }
     if (upstream && upstream.ok) break;
-    // A model that will not run with thinking off says so with a 400. Let it think, with room to spare.
-    if (upstream && upstream.status === 400 && !allowThinking &&
-        /thinking/i.test(String((data && data.error && data.error.message) || ""))) {
-      allowThinking = true;
+    // A model that rejects the chosen thinking setting says so with a 400. Fall back to its own default.
+    if (upstream && upstream.status === 400 && mode !== "auto" &&
+        /thinking|effort|output_config/i.test(String((data && data.error && data.error.message) || ""))) {
+      console.error("dr-mustard: thinking setting '" + mode + "' rejected; using the model's default");
+      mode = "auto";
       attempt--;
       continue;
     }
