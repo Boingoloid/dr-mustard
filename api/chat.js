@@ -179,7 +179,7 @@ module.exports = async function handler(req, res) {
     if (!passing || attempt === ATTEMPTS) break;
     await new Promise(function (resolve) { setTimeout(resolve, RETRY_PAUSE_MS); });
   }
-  if (!upstream) return reply(res, 502, { error: "failed" });
+  if (!upstream) return reply(res, 502, { error: "failed", why: "unreachable" });
 
   if (!upstream.ok) {
     const message = String((data && data.error && data.error.message) || "").toLowerCase();
@@ -188,7 +188,11 @@ module.exports = async function handler(req, res) {
       return reply(res, 503, { error: "closed" });
     }
     if (upstream.status === 429 || upstream.status === 529) return reply(res, 429, { error: "rate_limited" });
-    return reply(res, 502, { error: "failed" });
+    return reply(res, 502, {
+      error: "failed",
+      why: "status_" + upstream.status + "_" + ((data && data.error && data.error.type) || "unknown"),
+      detail: String((data && data.error && data.error.message) || "").slice(0, 200)
+    });
   }
 
   const text = (data && Array.isArray(data.content) ? data.content : [])
@@ -196,8 +200,9 @@ module.exports = async function handler(req, res) {
     .map(function (part) { return part.text; })
     .join("");
   if (!text.trim()) {
-    console.error("dr-mustard: Claude answered with no text");
-    return reply(res, 502, { error: "failed" });
+    const kinds = (data && Array.isArray(data.content) ? data.content : []).map(function (part) { return part && part.type; }).join(",");
+    console.error("dr-mustard: Claude answered with no text (stop_reason " + (data && data.stop_reason) + ", blocks " + kinds + ")");
+    return reply(res, 502, { error: "failed", why: "empty_" + (data && data.stop_reason) + "_blocks_" + (kinds || "none") });
   }
 
   return reply(res, 200, { text: text });
