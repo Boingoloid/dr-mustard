@@ -4,7 +4,8 @@
 
 /* ---------- the caps: change these numbers to loosen or tighten spending ---------- */
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5"; // set ANTHROPIC_MODEL to switch models
-const MAX_REPLY_TOKENS = 700;      // longest reply Claude may write
+const MAX_REPLY_TOKENS = 1000;     // longest reply Claude may write
+const THINKING_ROOM = 3000;        // extra allowance, used only for a model that refuses to run with thinking off
 const MAX_MESSAGES = 7;            // longest session: 4 patient turns, 3 replies
 const MAX_MESSAGE_CHARS = 2000;    // longest single patient message
 const REQUESTS_PER_HOUR = 30;      // per visitor (by IP address), best effort
@@ -150,27 +151,41 @@ module.exports = async function handler(req, res) {
       "x-api-key": key,
       "anthropic-version": "2023-06-01"
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: MAX_REPLY_TOKENS,
-      system: persona(patient),
-      messages: messages
-    })
   };
+  const core = {
+    model: MODEL,
+    max_tokens: MAX_REPLY_TOKENS,
+    system: persona(patient),
+    messages: messages
+  };
+  // Current Claude models think before answering unless told not to, and that thinking is
+  // counted against max_tokens. Left on, it can use up the whole allowance and leave no reply.
+  // Dr. Mustard's replies are short and in character, so thinking is switched off.
+  let allowThinking = false;
   let upstream = null;
   let data = null;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     upstream = null;
     data = null;
+    const body = Object.assign({}, core, allowThinking
+      ? { max_tokens: MAX_REPLY_TOKENS + THINKING_ROOM }
+      : { thinking: { type: "disabled" } });
     try {
       upstream = await fetch("https://api.anthropic.com/v1/messages",
-        Object.assign({}, request, { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) }));
+        Object.assign({}, request, { body: JSON.stringify(body), signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) }));
       try { data = await upstream.json(); } catch (e) { data = null; }
     } catch (e) {
       // Shows in the host's function logs. It records the reason only, never the conversation or the key.
       console.error("dr-mustard: attempt " + attempt + " did not reach Claude (" + ((e && e.name) || "error") + ")");
     }
     if (upstream && upstream.ok) break;
+    // A model that will not run with thinking off says so with a 400. Let it think, with room to spare.
+    if (upstream && upstream.status === 400 && !allowThinking &&
+        /thinking/i.test(String((data && data.error && data.error.message) || ""))) {
+      allowThinking = true;
+      attempt--;
+      continue;
+    }
     if (upstream) {
       console.error("dr-mustard: attempt " + attempt + " got status " + upstream.status +
         " (" + ((data && data.error && data.error.type) || "no error type") + ")");
