@@ -318,7 +318,7 @@ button { font-family: var(--font-body); cursor: pointer; }
   <div class="page-inner">
     <header class="desk-head">
       <span class="label">Step 1 of 3</span>
-      <h1>Patient intake</h1>
+      <h1>Before you sit down</h1>
     </header>
 
     <form class="intake" id="intake" novalidate>
@@ -506,7 +506,7 @@ button { font-family: var(--font-body); cursor: pointer; }
     var card = el("article", "slip");
     var head = el("div", "slip-head");
     head.appendChild(el("span", "rx", "℞"));
-    head.appendChild(el("small", null, "For " + (patient ? patient.name : "the patient") + ", from Dr. Mustard"));
+    head.appendChild(el("small", null, "For " + (patient ? patient.name : "you") + ", from Dr. Mustard"));
     card.appendChild(head);
     card.appendChild(el("h2", null, rx.sandwich));
     var dl = el("dl");
@@ -548,6 +548,7 @@ button { font-family: var(--font-body); cursor: pointer; }
     turn.appendChild(el("span", "label", "You"));
     turn.appendChild(el("p", "say", text));
     log.appendChild(turn);
+    return turn;
   }
   function addNotice(text) {
     var turn = el("div", "turn notice");
@@ -557,7 +558,7 @@ button { font-family: var(--font-body); cursor: pointer; }
 
   /* ---------- step 3: Uber Eats or ingredients ---------- */
   function newPatientButton() {
-    var again = el("button", "pill", "New patient");
+    var again = el("button", "pill", "Share another feeling");
     again.type = "button";
     again.addEventListener("click", endSession);
     return again;
@@ -798,7 +799,7 @@ button { font-family: var(--font-body); cursor: pointer; }
     text = (text || "").trim().slice(0, 2000);
     if (!text || busy || closed || listening || !patient) return;
     messages.push({ role: "user", content: text });
-    addPatient(text);
+    var said = addPatient(text);
     input.value = "";
     heardBase = heardFinal = heardPartial = "";
     autosize();
@@ -835,7 +836,8 @@ button { font-family: var(--font-body); cursor: pointer; }
     }).catch(function (err) {
       if (signal.aborted) return;
       turn.remove();
-      messages.pop();                 // let the patient say it again
+      said.remove();                  // the text goes back in the box, so its bubble comes off the page
+      messages.pop();                 // and it can be sent again
       input.value = text;
       autosize();
       setBusy(false);
@@ -854,7 +856,7 @@ button { font-family: var(--font-body); cursor: pointer; }
     log.textContent = "";
     talkDesk.hidden = false;
     newGreeting();
-    addDoctorLine(GREETINGS[greetAt].replace("{name}", function () { return patient.name; }));
+    addDoctorLine(GREETINGS[greetAt].replace("{name}", function () { return patient.name.split(/\s+/)[0]; }));
     setBusy(false);
     toBottom();
   }
@@ -881,6 +883,12 @@ button { font-family: var(--font-body); cursor: pointer; }
     beginBtn.focus();
   }
 
+  function tidyCity(city) {
+    return city.replace(/\s+/g, " ")
+      .replace(/(^|[\s-])([a-z])/g, function (all, gap, letter) { return gap + letter.toUpperCase(); })
+      .replace(/,\s*([A-Za-z]{2})$/, function (all, state) { return ", " + state.toUpperCase(); });
+  }
+
   /* ---------- step 1: intake ---------- */
   beginBtn.addEventListener("click", function () {
     show("desk");
@@ -903,7 +911,7 @@ button { font-family: var(--font-body); cursor: pointer; }
       return;
     }
     intakeError.textContent = "";
-    patient = { name: name, city: city, diet: fDiet.value.trim(), allergy: fAllergy.value.trim() };
+    patient = { name: name, city: tidyCity(city), diet: fDiet.value.trim(), allergy: fAllergy.value.trim() };
     messages = [];
     openSession();
     input.focus();

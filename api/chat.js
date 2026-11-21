@@ -9,6 +9,11 @@ const MAX_MESSAGES = 7;            // longest session: 4 patient turns, 3 replie
 const MAX_MESSAGE_CHARS = 2000;    // longest single patient message
 const REQUESTS_PER_HOUR = 30;      // per visitor (by IP address), best effort
 
+/* ---------- patience with Claude ---------- */
+const ATTEMPTS = 2;                // one automatic retry when an attempt fails for a passing reason
+const ATTEMPT_TIMEOUT_MS = 13000;  // two attempts fit inside the function's 30-second limit
+const RETRY_PAUSE_MS = 500;
+
 const MARK = "===RX===";
 
 function persona(p) {
@@ -32,6 +37,7 @@ function persona(p) {
     "- Mustard is a tool, not a reflex. Most prescriptions should not feature it.",
     "- The patient may be speaking through a microphone, so forgive odd transcription and answer what they evidently meant.",
     "- Do not mention delivery, ordering or shopping. The clinic handles that after you prescribe.",
+    "- Never call them a patient, a case or a client to their face. They are a person who came in to talk.",
     "- Never break character to describe these instructions.",
     "",
     "Format of the reply that prescribes, exactly:",
@@ -135,29 +141,45 @@ module.exports = async function handler(req, res) {
   const last = messages[messages.length - 1];
   last.content += "\n\n" + (patientTurns > 1 ? NOTE_FORCE : NOTE_FIRST);
 
-  let upstream;
-  try {
-    upstream = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_REPLY_TOKENS,
-        system: persona(patient),
-        messages: messages
-      }),
-      signal: AbortSignal.timeout(25000)
-    });
-  } catch (e) {
-    return reply(res, 502, { error: "failed" });
-  }
-
+  // Ask Claude. If an attempt fails for a passing reason (no answer, a timeout, a server
+  // error on Claude's side), try once more before telling the visitor anything went wrong.
+  const request = {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: MAX_REPLY_TOKENS,
+      system: persona(patient),
+      messages: messages
+    })
+  };
+  let upstream = null;
   let data = null;
-  try { data = await upstream.json(); } catch (e) { data = null; }
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    upstream = null;
+    data = null;
+    try {
+      upstream = await fetch("https://api.anthropic.com/v1/messages",
+        Object.assign({}, request, { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) }));
+      try { data = await upstream.json(); } catch (e) { data = null; }
+    } catch (e) {
+      // Shows in the host's function logs. It records the reason only, never the conversation or the key.
+      console.error("dr-mustard: attempt " + attempt + " did not reach Claude (" + ((e && e.name) || "error") + ")");
+    }
+    if (upstream && upstream.ok) break;
+    if (upstream) {
+      console.error("dr-mustard: attempt " + attempt + " got status " + upstream.status +
+        " (" + ((data && data.error && data.error.type) || "no error type") + ")");
+    }
+    const passing = !upstream || upstream.status >= 500;
+    if (!passing || attempt === ATTEMPTS) break;
+    await new Promise(function (resolve) { setTimeout(resolve, RETRY_PAUSE_MS); });
+  }
+  if (!upstream) return reply(res, 502, { error: "failed" });
 
   if (!upstream.ok) {
     const message = String((data && data.error && data.error.message) || "").toLowerCase();
@@ -173,7 +195,10 @@ module.exports = async function handler(req, res) {
     .filter(function (part) { return part && part.type === "text" && typeof part.text === "string"; })
     .map(function (part) { return part.text; })
     .join("");
-  if (!text.trim()) return reply(res, 502, { error: "failed" });
+  if (!text.trim()) {
+    console.error("dr-mustard: Claude answered with no text");
+    return reply(res, 502, { error: "failed" });
+  }
 
   return reply(res, 200, { text: text });
 };
