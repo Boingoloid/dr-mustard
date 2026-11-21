@@ -328,7 +328,7 @@ button { font-family: var(--font-body); cursor: pointer; }
       </div>
       <div class="field">
         <label for="intake-city">City you live in</label>
-        <input id="intake-city" type="text" autocomplete="address-level2" maxlength="80" placeholder="Marina del Rey, CA">
+        <input id="intake-city" type="text" autocomplete="address-level2" maxlength="80" placeholder="Santa Monica">
       </div>
       <div class="field">
         <label for="intake-diet">Dietary restrictions</label>
@@ -409,7 +409,7 @@ button { font-family: var(--font-body); cursor: pointer; }
 
   var dict = null;          // the microphone, when the browser has speech recognition
   var listening = false;
-  var sendOnStop = false;
+  var stopping = false;
   var heardBase = "";
   var heardFinal = "";
   var heardPartial = "";
@@ -727,8 +727,8 @@ button { font-family: var(--font-body); cursor: pointer; }
   }
   function paintMic() {
     micBtn.classList.toggle("listening", listening);
-    micBtn.setAttribute("aria-label", listening ? "Stop and send" : "Start talking");
-    if (listening) setStatus("Listening. Tap the square when you're done and he'll answer.", true);
+    micBtn.setAttribute("aria-label", listening ? "Stop recording" : "Start talking");
+    if (listening) setStatus("Listening. Tap the square when you're done, then press Send.", true);
   }
 
   dict = browserDictation();
@@ -743,20 +743,20 @@ button { font-family: var(--font-body); cursor: pointer; }
     dict.onState(function (e) {
       listening = e.state === "listening";
       paintMic();
-      if (!listening && !sendOnStop && !busy) setStatus(input.value.trim() ? "Check what he heard, then send." : "");
+      if (!listening && !stopping && !busy) setStatus(input.value.trim() ? "Check what he heard, then press Send." : "");
     });
   }
 
   micBtn.addEventListener("click", function () {
     if (!dict || busy || closed) return;
     if (listening) {
-      sendOnStop = true;
+      stopping = true;
       setStatus("Catching your last words.");
       dict.stop().catch(function () {}).then(function () {
-        sendOnStop = false;
+        stopping = false;
         listening = false;
         paintMic();
-        if (input.value.trim()) send(input.value);
+        if (input.value.trim()) setStatus("Check what he heard, then press Send.");
         else paintStatusIdle();
       });
       return;
@@ -865,7 +865,7 @@ button { font-family: var(--font-body); cursor: pointer; }
     if (controller) controller.abort();
     if (dict && listening) { try { quiet(dict.stop()); } catch (e) {} }
     listening = false;
-    sendOnStop = false;
+    stopping = false;
     paintMic();
     messages = [];
     patient = null;
