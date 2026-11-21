@@ -7,7 +7,7 @@ const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5"; // set ANTHROPI
 const MAX_REPLY_TOKENS = 1000;     // longest reply Claude may write
 const THINKING_ROOM = 3000;        // extra allowance for the model's thinking, when thinking is on
 // How much the model thinks before it answers: "off", "low", "medium", "high", or "auto" (the model's own default).
-const THINKING = process.env.DR_MUSTARD_THINKING || "off";
+const THINKING = process.env.DR_MUSTARD_THINKING || "low";
 const MAX_MESSAGES = 7;            // longest session: 4 patient turns, 3 replies
 const MAX_MESSAGE_CHARS = 2000;    // longest single patient message
 const REQUESTS_PER_HOUR = 30;      // per visitor (by IP address), best effort
