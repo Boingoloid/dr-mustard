@@ -327,8 +327,8 @@ button { font-family: var(--font-body); cursor: pointer; }
         <input id="intake-name" type="text" autocomplete="given-name" maxlength="60">
       </div>
       <div class="field">
-        <label for="intake-city">City you live in</label>
-        <input id="intake-city" type="text" autocomplete="address-level2" maxlength="80" placeholder="Santa Monica">
+        <label for="intake-zip">Your zip code</label>
+        <input id="intake-zip" type="text" inputmode="numeric" pattern="[0-9]{5}" autocomplete="postal-code" maxlength="5" placeholder="98765">
       </div>
       <div class="field">
         <label for="intake-diet">Dietary restrictions</label>
@@ -388,7 +388,7 @@ button { font-family: var(--font-body); cursor: pointer; }
   var intakeError = document.getElementById("intake-error");
   var intakeBack = document.getElementById("intake-back");
   var fName = document.getElementById("intake-name");
-  var fCity = document.getElementById("intake-city");
+  var fZip = document.getElementById("intake-zip");
   var fDiet = document.getElementById("intake-diet");
   var fAllergy = document.getElementById("intake-allergy");
   var endBtn = document.getElementById("end-session");
@@ -401,7 +401,7 @@ button { font-family: var(--font-body); cursor: pointer; }
   var sendBtn = document.getElementById("send");
 
   var view = "door";        // door | desk | session
-  var patient = null;       // {name, city, diet, allergy}
+  var patient = null;       // {name, zip, diet, allergy}
   var messages = [];        // {role, content}; lives only while the page is open
   var busy = false;
   var closed = false;
@@ -615,7 +615,7 @@ button { font-family: var(--font-body); cursor: pointer; }
 
     // "your The Reuben" reads wrong, so the question and the ingredients line drop a leading article.
     rx.sandwich = rx.sandwich.replace(/^(the|a|an)\s+/i, "");
-    var turn = addDoctorLine("Would you like to look for your " + rx.sandwich + " on Uber Eats in " + patient.city + " so that you can have it delivered?");
+    var turn = addDoctorLine("Would you like to look for your " + rx.sandwich + " on Uber Eats near " + patient.zip + " so that you can have it delivered?");
     var choices = el("div", "choices");
     var yes = el("button", "go", "Yes, search Uber Eats");
     yes.type = "button";
@@ -876,17 +876,11 @@ button { font-family: var(--font-body); cursor: pointer; }
     autosize();
     intakeForm.reset();
     intakeError.textContent = "";
-    [fName, fCity].forEach(function (f) { f.removeAttribute("aria-invalid"); });
+    [fName, fZip].forEach(function (f) { f.removeAttribute("aria-invalid"); });
     newPun();
     show("door");
     door.scrollTop = 0;
     beginBtn.focus();
-  }
-
-  function tidyCity(city) {
-    return city.replace(/\s+/g, " ")
-      .replace(/(^|[\s-])([a-z])/g, function (all, gap, letter) { return gap + letter.toUpperCase(); })
-      .replace(/,\s*([A-Za-z]{2})$/, function (all, state) { return ", " + state.toUpperCase(); });
   }
 
   /* ---------- step 1: intake ---------- */
@@ -899,19 +893,20 @@ button { font-family: var(--font-body); cursor: pointer; }
   intakeForm.addEventListener("submit", function (event) {
     event.preventDefault();
     var name = fName.value.trim();
-    var city = fCity.value.trim();
+    var zip = fZip.value.trim();
+    var zipOk = /^\d{5}$/.test(zip);
     fName.toggleAttribute("aria-invalid", !name);
-    fCity.toggleAttribute("aria-invalid", !city);
+    fZip.toggleAttribute("aria-invalid", !zipOk);
     if (!name) fName.setAttribute("aria-invalid", "true");
-    if (!city) fCity.setAttribute("aria-invalid", "true");
-    if (!name || !city) {
-      intakeError.textContent = !name && !city ? "Dr. Mustard needs your name and your city."
-        : !name ? "Dr. Mustard needs your name." : "Dr. Mustard needs your city.";
-      (!name ? fName : fCity).focus();
+    if (!zipOk) fZip.setAttribute("aria-invalid", "true");
+    if (!name || !zipOk) {
+      intakeError.textContent = !name && !zipOk ? "Dr. Mustard needs your name and your 5-digit zip code."
+        : !name ? "Dr. Mustard needs your name." : "Dr. Mustard needs your 5-digit zip code.";
+      (!name ? fName : fZip).focus();
       return;
     }
     intakeError.textContent = "";
-    patient = { name: name, city: tidyCity(city), diet: fDiet.value.trim(), allergy: fAllergy.value.trim() };
+    patient = { name: name, zip: zip, diet: fDiet.value.trim(), allergy: fAllergy.value.trim() };
     messages = [];
     openSession();
     input.focus();

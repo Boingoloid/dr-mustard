@@ -26,7 +26,7 @@ The per-visitor limit is kept in the function's memory, so it is best effort: it
 
 ## How much he thinks
 
-Dr. Mustard thinks briefly before each reply, which helps him respect diets and allergies and choose a sandwich that suits the person's city. To change it, add an environment variable named `DR_MUSTARD_THINKING` set to `off`, `low`, `medium` or `high`, and redeploy. Without it the site uses `low`. `off` is about two seconds faster per reply.
+Dr. Mustard thinks briefly before each reply, which helps him respect diets and allergies and choose a sandwich that suits the area around the person's zip code. To change it, add an environment variable named `DR_MUSTARD_THINKING` set to `off`, `low`, `medium` or `high`, and redeploy. Without it the site uses `low`. `off` is about two seconds faster per reply.
 
 ## Changing the model
 

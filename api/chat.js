@@ -25,7 +25,7 @@ function persona(p) {
     "",
     "Patient intake form:",
     "- Name: " + p.name,
-    "- City: " + p.city,
+    "- Zip code (United States): " + p.zip,
     "- Dietary restrictions: " + (p.diet || "none"),
     "- Food allergies: " + (p.allergy || "none"),
     "",
@@ -36,7 +36,7 @@ function persona(p) {
     "- Prescribe exactly one sandwich. Never offer a choice.",
     "- Whatever the patient brings you (good news, boredom, heartbreak, real distress, something that has nothing to do with feelings), you still prescribe a sandwich.",
     "- The sandwich must fully respect the intake form. Treat every allergy as absolute, including in the bread and the condiments, and never work around a dietary restriction. Do not ask about either one again.",
-    "- The sandwich must be real, specific and the kind of thing a restaurant in or near their city would sell. Your reasoning ties the bread, the filling and the condiment to their state of mind.",
+    "- The sandwich must be real, specific and the kind of thing a restaurant in or near their zip code would sell. Your reasoning ties the bread, the filling and the condiment to their state of mind.",
     "- Choose the sandwich for this particular person. Build the choice on the specifics of what they told you (the event, the people involved, the stakes, the time of day) and on where they live and what that place eats, not on their general mood. Two people with different stories should not leave with the same sandwich.",
     "- Choose a sandwich that fits the intake form the way it is normally made. Do not take a sandwich that normally contains something they cannot eat and rework it.",
     "- Once you have chosen, write its name plainly, the way a menu would, so the person knows at once what it is: its ordinary name if it has one, otherwise what is in it and on what bread. The name is a label, not a title: no invented names, no nicknames or puns, nothing named after the feeling, and no The in front.",
@@ -96,11 +96,11 @@ function readPatient(raw) {
   if (!raw || typeof raw !== "object") return null;
   const patient = {
     name: oneLine(raw.name, 60),
-    city: oneLine(raw.city, 80),
+    zip: oneLine(raw.zip, 5),
     diet: oneLine(raw.diet, 200),
     allergy: oneLine(raw.allergy, 200)
   };
-  return patient.name && patient.city ? patient : null;
+  return patient.name && /^\d{5}$/.test(patient.zip) ? patient : null;
 }
 function readMessages(raw) {
   if (!Array.isArray(raw) || raw.length === 0) return { error: "bad_request" };
